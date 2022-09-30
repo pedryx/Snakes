@@ -1,0 +1,182 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{fancyhdr}
+\usepackage{multicol}
+\usepackage{listings}
+\usepackage[margin=0.7in]{geometry}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\s}{$~~~~~$}
+
+\pagestyle{fancy}
+\lhead{Dokumentace - Zapoctovy program - Letni semestr 2019/2020}
+\rhead{Petr Kotáb}
+
+\begin{document}
+
+\section*{Puvodni zadani}
+Hra pro n hráčů, z nichž každý ovládá jednoho červa. Všichni červi lezou bludištěm, ve kterém jsou rozmístěny kousky jídla a jedu. Na počátku má každý červ délku jedno políčko, když objeví jídlo (tj. dolezou na políčko, na kterém nějaké je), prodlouží se o další políčko. Když červ sežere jed, narazí do zdi nebo do libovolného červa (včetně sebe sama), vypadává ze hry. Ovládání: Pro každého hráče nezávislé klávesy pro zatočení doleva a doprava. Síťová verze + Umělá inteligence.
+
+\section*{Upresneni k zadani}
+Namisto bludiste byl zaveden koncept map, ktere jsou definovany v externich souborech (viz sekce Format vstupnich souboru). Pri vstupu do lobby se vybere defaultni mapa ("Rocks.map", v dobe psani teto dokumentace). Hraci maji moznost tuto mapu pred vstupem do hry zmenit. Dale bylo zavedeno vice typu jidel, ktere jsou take definovany v externich souborech formatu XML. Jidlo typu jed neni soucasti hry, jelikoz se principialne moc nelisilo od policka zdi. Hadi se ovladaji ctyrmi klavesami namisto dvou, jelikoz je to pro hrace vice intuitivni.
+
+\section*{Algoritmy}
+Hra je rozdelena do takzvanych tahu, kde v pripade mistni hry, je novy tah zahajen, kazdych 500ms a v pripade sitove hry prijetim paketu o novem tahu od sitoveho serveru, ktery tento paket posila kazdych 500ms.\\
+
+Mistni hrac je reprezentovan jako "PlayerSnake", je napojeny na event, ktery se spusti, je-li zmacknuta libovolna klavesa, pokud je to klavesa, ktera hrace zajima (klavesa pro ovladani "PlayerSnake"), tak je podle teto klavesy vyhodnocen smer hada. Smer je vyhodnocen v zavislosti na poradi stisknute klavesy v poli controlKeys (0 - nahoru, 1 - doleva, 2 - dolu, 3 - doprava). Hra urci haduv dalsi smer v zavislosti na poslednim takto vyhodnocenem smeru.\\
+
+Umela inteligence, kterou predstavuje "AISnake", se v kazdem svem tahu pokusi nalezt pomoci vyhledavani do sirky nejblizsi jidlo. Nasledne zrekonstruuje cestu k tomuto jidlu a vyda se smerem k druhemu policku teto cesty (na prvnim sam stoji.)\\
+
+Vzdaleny hrac (hrac, ktery se taktez nachazi ve hre s mistnim hracem, ale nesdili snim stejnou instanci aplikace) je reprezentovan "NetworkSnake". "NetworkSnake" je napojeny na event, ktery prijima smer od objektu "Client" (predstavuje sitoveho klienta). Stejne jako u mistniho hrace, je dalsi smer urcen v zavislosti na poslednim takto vyhodnocenem smeru.
+
+\section*{Program}
+\subsection*{Herni stavy}
+Program je delan v jazyce C\# v. 8.0 (.NET Core 3.1) a vyuziva WPF Frameworku. Pro reprezentaci herniho stavu byla zvolena UI komponenta "Frame", ktera obsahuje "Page". Kazdy herni stav ma svou "Page".\\
+
+"MenuPage" predstavuje herni menu ve kterem se nachazi "StackPanel", obsahujici jednotliva tlacitka. Po zvoleni prislusneho tlacitka je hrac prenesen do dalsiho herniho stavu. \\
+
+\noindent Popis tlacitek:\\
+\s Local - Vstoupi do lobby pro novou mistni hru.\\
+\s Host - Vytvori lobby pro novou sitovou hru.\\
+\s Connect - Pripoji se do lobby pro jiz existujici sitovou hru.\\
+\s Foods - Ukaze seznam jidel a jejich atributy.\\
+
+"FoodsPage" predstavuje prohlizec jidel, pro kazde jidlo je zobrazen jeho vzhled ,na prave stane je vycet jeho atributu. Pro navigaci mezi jidly muze hrac pouzit tlacitka "Prev" a "Next".\\
+
+"LocalPage" predstavuje herni lobby. Hrac ma zde moznost pridavat do hry nove hady, pripadne menit mapu. Pri vytvoreni noveho hada mu bude pridelena barva z kolekce "colors". Barva noveho hada je rovna\\ \lstinline|colors[pocet_hadu % pocet_barev].|. V pripade sitove hry je poslan pozadavek na pridani noveho hada, kde novi had bude pridan az pri reakci od serveru. Maximalni pocet hadu je roven poctu "spawn" (policek, na kterych se had muze objevit). \\
+
+"GamePage" predstavuje hru samotnou. Po prave strane jsou videt informace o hre.\\
+
+\subsection*{Sitova komunikace}
+Pro sitovou komunikaci byla vytvorena knihovna "NetCom". Soucasti knihovny je trida "Protocol", ktera umoznuje posilat po siti zakladni datove typy.\\
+
+Nasledne je projekt rozdelen na dedikovany server (projekt "Snakes\_ Server") a sitoveho klienta (projekt "Snakes"). Server pri spusteni obdrzi dva argumenty, prvni je defaultni mapa a druhy je pocet spawnu na teto mape (zaroven maximalni pocet hadu). V pripade ze nejsou predany zadne argumenty, je zvolena mapa "Rocks.map" s poctem spawnu 4.\\
+
+Komunikace probiha na portu 2227 pres protokol TCP. Cinnost serveru je rozdelena do vice vlaken. Jedno vlakno se stara o prijimani novych hracu, kteri se chteji napojit do hry (hlavni vlakno aplikace). Nasledne pro kazdeho klienta ve hre existuje "receivingThred", ktere se stara o prijimani zprav od prislusneho klienta.\\
+
+Pri jakemkoliv odesilani paketu od serveru dojde k uzamceni, kde se jako zamek pouzije client, kteremu se paket odesila. V pripade jakekoliv manipulace ze slovnikem "clients", je pouzit zamek "clientsLock".\\
+
+\noindent Legenda k popisu jednotlivych paketu:\\
+\s cislo - pocet bytu\\
+\s S - textovy retezec (nejprve je poslana jeho delka jako 4-bytove cislo a pote textovy retezec)\\
+\s C - barva, tri 1-bytova cisla v poradi cervena, zelena, modra\\
+\s B - bool, 1 pro true a 0 pro false (1-bitove cislo)\\
+
+Pote co se hrac pripoji na sever, je nutne provest inicializacni proceduru. Prvne mu je prideleno id, nasledne mu je poslan inicializacni paket:\\
+\s 1 - id hrace\\
+\s S - nazev souboru mapy\\
+\s 4 - pocet radku souboru mapy\\
+\s pro kazdy radek souboru:\\
+\s\s S - radek souboru\\
+\s 4 - pocet hadu\\
+\s pro kazdeho hada:\\
+\s\s 4 - id hada\\
+\s\s C - barva hada\\
+\s\s B - je had AI?\\
+
+Pote co se klientovi vysle inicializacni paket, tak je pridan do slovniku "clients", kde se jako klic pouziva id klienta. Nasledne se zahaji jeho "receivingThread". Klient po obdrzeni inicializacni paketu take zahaji svuj "receivingThred." "ReceivingThred" obsahuje smycku, ve ktere se na zacatku overi dostupnost informace, pokud zadna neni dostupna, tak se vlakno uspi na 20ms a pote se skoci na dalsi iteraci. V pripade ze je informace k dispozici, precte se o jaky typ paketu se jedna, pote nasleduje prislusna reakce na dany typ paketu.\\
+
+Komunikace mezi serverem a klientem probiha tak, ze nejprve jeden z nich posle typ zpravy a nasledne dalsi infromace. Vsechny typy zprav jsou definovany v enum "MessageType", ktery je soucasti knihovny "NetCom". Nasleduje vycet a popis jednotlivych paketu, na zacatku kazdeho paketu je poslana 1-bytva informace o typu paketu (tato informace neni soucasti popisu).\\
+
+\noindent "AddSnakeRequest" paket:\\
+Tento paket posle klient v pripade, ze se hrac rozhodl pridat do hry noveho hada.
+\s B - je had AI?\\
+\s C - barva hada\\
+
+\noindent "AddSnakeRequestDenied" paket:\\
+Tento paket posle server v pripade ze bylo dosazeno maximalniho poctu hadu. Stimto paketem se neposilaji jiz zadne dodatecne informace.\\
+
+\noindent "NewSnake" paket:\\
+Tento paket posle server, v pripade ze byl do hry pridan novy had.
+\s 1 - id hrace co hada pridal\\
+\s 4 - id hada\\
+\s V pripade ze se paket posila klientovi, ktery hada pridal tak nejsou poslany zadne dalsi informace.\\
+\s C - barva hada\\
+\s B - je had AI?\\
+
+\noindent "RemoveSnake" paket:\\
+Tento paket posle klient serveru, v pripade ze se hrac rozhodl odebrat hada ze hry. Server tento paket nasledne rozesle vsem klientum.\\
+\s 4 - id hada\\
+
+\noindent "MapChange" paket:\\
+Tento paket posle klient serveru, pokud se hrac rozhodl zmenit mapu. Server tento paket pote rozesle vsem klientum.\\
+\s S - nazev souboru mapy\\
+\s 4 - pocet radku souboru mapy\\
+\s pro kazdy radek souboru mapy:\\
+\s\s S - radek souboru mapy\\
+\s 4 - pocet spawnu (tuto informaci odesila pouze klient)\\
+
+\noindent "StartGame" paket:\\
+Tento paket posle klient v pripade, ze se hrac rozhodl odstartovat hru, server tento paket nasledne rozesle vsem klientum. Tento paket neobsahuje zadne dodatecne imformace.\\
+
+\noindent "Update" paket:\\
+Tento paket odesila server kazdych 500ms, jako informaci o tom ze klienti maji zacit novy tah. Tento paket neobsahuje zadne dodatecne informace.\\
+
+\noindent "GameOver" paket:\\
+Tento paket odesle klient serveru v pripade ze doslo ke skonceni hry, server tento paket posle vsem svim klientum a nasledne ukonci svou cinnost. Tento paket neobsahuje zadne dodatecne informace.\\
+
+\noindent "Movement" paket:\\
+Tento paket odesle klient serveru, v pripade ze hrac stihne klavesu, ktera ovlivni nektereho "PlayerSnake". Server pote vezme tento paket a odesle jej vsem klientum, kteri podle nej vyhodnoti pohyb "NetworkSnake".\\
+\s 4 - id hada\\
+\s 1 - smer pohybu (definovnany v enum "Direction", ktery je soucasti knihovny "NetCom")\\
+
+\section*{Format vstupnich souboru}
+Soubory jidel jsou formatu XML. Vsechny soubory jidel se musi nachazet ve slozce Foods. Kazdemu jidlu lze definovat nasledujíci atributy:\\
+\s Texture - Nazev textury daneho jidla (Texturu je nutne umistit do slozky Textures).\\
+\s SpawnChance - Procentualni sance ze bude jidlo spawnuto.\\
+\s FoodSpawn - Kdyz je nastaveno na true, tak po snedeni tohoto jidla dojde ke spawnuti dalsich jidel.\\
+\s Fat - Pocet policek o kolik had vyroste, pokud jidlo sni.\\
+\s Score - Skore, ktere had ziska pokud jidlo sni.\\
+
+Soubory map musi byt umisteny ve slozce Maps. Prvni radek souboru mapy obsahuje 2 cela cisla oddelena mezerou, prvni predstavuje sirku mapu a druhe vysku. Nasleduje vyska-radku, kde na kazdem radku se nachazi sirka-cisel oddelenych mezerami. Cisla maji nasledujici vyznam:\\
+\s 0 - prazdne policko\\
+\s 1 - policko zdi/skaly\\
+\s 2 - policko spawnu (policko na, kterem muze had zacit hru)\\
+
+Soubory textur musi byt umisteny, ve slozce s texturami. Program podporuje pouze soubory s priponou png. Pro pristup k texturam skrze kod slouzi singleton "TextureManager", kde k texture se dostanem pomoci metody GetTexture(Jmeno\_ textury), "TextureManager" se texturu pokusi najit mezi nactenymi textury a pokud ji nema tak ji nacte. Pokud jako dalsi parametr zadame barvu textury, tak se textura obarvi na prislusnou barvu.
+
+\section*{Nedostatky}
+Program by mohl podporovat dalsi druhy textur (ne pouze PNG). K programu by mohl existovat editor map, pres ktery by pro uzivatele bylo jednodusi vytvaret nove mapy. Dalsim velkym nedostatkem je neosetrene nacitani vstupnich souboru a neosetrene odpojeni klienta nebo vypnuti serveru. Tyto veci nebyli stihnuty, jelikoz jsem se bal ze je na odevzdani programu prilis pozde.
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

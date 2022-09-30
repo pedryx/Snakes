@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Food\Basic.xml" />
+    <None Remove="Food\Burger.xml" />
+    <None Remove="Food\Sallat.xml" />
+    <None Remove="Maps\Empty.map" />
+    <None Remove="Maps\Rocks.map" />
+    <None Remove="Maps\Squares.map" />
+    <None Remove="Textures\BasicFood.png" />
+    <None Remove="Textures\Burger.png" />
+    <None Remove="Textures\Sallat.png" />
+    <None Remove="Textures\SnakeBody.png" />
+    <None Remove="Textures\SnakeHead.png" />
+    <None Remove="Textures\SnakeTail.png" />
+    <None Remove="Textures\SnakeTurn.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Food\Basic.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Food\Burger.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Food\Sallat.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Maps\Empty.map">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Maps\Rocks.map">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Maps\Squares.map">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\BasicFood.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\Burger.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\Sallat.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\SnakeBody.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\SnakeHead.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\SnakeTail.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Textures\SnakeTurn.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetCom\NetCom.csproj" />
+  </ItemGroup>
+
+</Project>
